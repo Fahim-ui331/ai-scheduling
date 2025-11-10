@@ -1,0 +1,10 @@
+Flask
+pandas
+numpy
+scikit-learn
+joblib
+SQLAlchemy
+psycopg2-binary ; platform_system != "Windows"
+mysqlclient      ; platform_system == "Windows"
+ortools
+python-dateutil
