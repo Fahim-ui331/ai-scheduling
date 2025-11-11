@@ -1,0 +1,152 @@
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=1.0">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Selected Schedule</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="goschool">
+  <header>
+    <div class="container">
+      <div class="nav-arrows">
+        <button onclick="goBack()" aria-label="Go Back">⬅</button>
+        <button onclick="history.forward()" aria-label="Go Forward">➡</button>
+      </div>
+
+      <h1 class="brand"><span class="cap"></span> Selected Schedule</h1>
+
+      <nav>
+        <a href="{{ url_for('index') }}">Back</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <section>
+        <h2>Your Choice</h2>
+        <div class="card" id="choiceCard">
+          <p><strong>Student:</strong> <span id="cStudentID"></span></p>
+          <p><strong>Course:</strong> <span id="cCourse"></span></p>
+          <p><strong>Section:</strong> <span id="cSection"></span></p>
+          <p><strong>Semester:</strong> <span id="cSemester"></span></p>
+          <p><strong>Status:</strong> <span id="cStatus" class="badge badge-cleared">Assigned</span></p>
+        </div>
+      </section>
+
+      <section class="assigned-schedule">
+        <h2>Your Weekly Schedule</h2>
+        <div id="timetable-container"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 AI-Based Class Schedule Generator | United International University</p>
+  </footer>
+
+  <script>
+    function goBack() {
+      if (document.referrer) history.back();
+      else window.location.href = "{{ url_for('index') }}";
+    }
+
+    // Read student_id from query string or pick one from saved assignments
+    const params = new URLSearchParams(window.location.search);
+    let studentId = params.get("student_id") || "";
+
+    // Pull latest assignments that index.html saved
+    const saved = localStorage.getItem("last_assignments");
+    const assignments = saved ? JSON.parse(saved) : null;
+
+    // If no explicit student_id, try to pick the first one
+    if (!studentId && assignments && Object.keys(assignments).length > 0) {
+      studentId = Object.keys(assignments)[0];
+    }
+
+    // Minimal course dictionary to paint a timetable (extend as needed)
+    const courses = [
+      { course_id: "CS101", section: "A", day: "Monday",    start_time: "09:00", end_time: "10:30", room: "Room 101" },
+      { course_id: "CS101", section: "B", day: "Wednesday", start_time: "14:00", end_time: "15:30", room: "Room 102" },
+      { course_id: "CS101", section: "C", day: "Monday",    start_time: "11:00", end_time: "12:30", room: "Room 101" },
+      { course_id: "MATH201", section: "A", day: "Tuesday",   start_time: "10:00", end_time: "11:30", room: "Room 201" },
+      { course_id: "MATH201", section: "B", day: "Tuesday",   start_time: "14:00", end_time: "15:30", room: "Room 201" },
+      { course_id: "PHYS301", section: "A", day: "Thursday",  start_time: "09:00", end_time: "10:30", room: "Room 301" },
+      { course_id: "ENGL101", section: "C", day: "Tuesday",   start_time: "13:00", end_time: "14:30", room: "Room 401" },
+      { course_id: "ENGL101", section: "D", day: "Friday",    start_time: "11:00", end_time: "12:30", room: "Room 402" }
+    ];
+
+    function buildTimetable(meeting) {
+      const days = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
+      const slots = ["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00"];
+      let html = `
+        <table class="timetable">
+          <thead>
+            <tr>
+              <th>Time</th>
+              ${days.map(d => `<th>${d}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      for (const t of slots) {
+        html += `<tr><td>${t}</td>`;
+        for (const d of days) {
+          if (meeting && meeting.day === d && meeting.start_time === t) {
+            html += `<td>${meeting.start_time}-${meeting.end_time}: ${meeting.course_id}-${meeting.section} (${meeting.room})</td>`;
+          } else {
+            html += `<td></td>`;
+          }
+        }
+        html += `</tr>`;
+      }
+      html += `</tbody></table>`;
+      return html;
+    }
+
+    function render() {
+      const timetableContainer = document.getElementById("timetable-container");
+      const cStudentID = document.getElementById("cStudentID");
+      const cCourse = document.getElementById("cCourse");
+      const cSection = document.getElementById("cSection");
+      const cSemester = document.getElementById("cSemester");
+      const cStatus = document.getElementById("cStatus");
+
+      if (!assignments || !studentId || !assignments[studentId]) {
+        cStudentID.textContent = studentId || "Unknown";
+        cCourse.textContent = "N/A";
+        cSection.textContent = "N/A";
+        cSemester.textContent = "N/A";
+        cStatus.className = "badge badge-priority";
+        cStatus.textContent = "Not Assigned";
+        timetableContainer.innerHTML = `<p class="ineligible">No schedule generated: assignment not found in recent results.</p>`;
+        return;
+      }
+
+      const sec = assignments[studentId];
+      cStudentID.textContent = studentId;
+      cCourse.textContent = sec.course_id ?? "N/A";
+      cSection.textContent = sec.section_code ?? "N/A";
+      cSemester.textContent = sec.semester ?? "Spring2025";
+      cStatus.className = "badge badge-cleared";
+      cStatus.textContent = "Assigned";
+
+      // Try to find a matching meeting from our small dictionary
+      const meeting = courses.find(c =>
+        c.course_id === (sec.course_id || "") &&
+        c.section === (sec.section_code || "")
+      );
+
+      timetableContainer.innerHTML = meeting
+        ? buildTimetable(meeting)
+        : `<p class="ineligible">No timetable found for ${sec.course_id}-${sec.section_code}. (Add more course slots in selected.html if needed.)</p>`;
+    }
+
+    render();
+  </script>
+</body>
+</html>

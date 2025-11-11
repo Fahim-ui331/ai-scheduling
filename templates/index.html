@@ -1,0 +1,134 @@
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=1.0">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI-Based Class Schedule Generator</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="goschool">
+  <header>
+    <div class="container">
+      <div class="nav-arrows">
+        <button onclick="window.location.href='{{ url_for(&quot;index&quot;) }}'" aria-label="Go Back">⬅</button>
+        <button onclick="history.forward()" aria-label="Go Forward">➡</button>
+      </div>
+
+      <h1 class="brand"><span class="cap"></span> AI-Based Class Schedule Generator</h1>
+
+      <nav>
+        <a href="{{ url_for('index') }}" class="active">Dashboard</a>
+        <a href="{{ url_for('selected') }}" target="_blank">Select Schedule</a>
+        <a href="#">Profile</a>
+        <a href="#">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container grid">
+      <!-- Student info / helper text -->
+      <section class="student-info">
+        <h2>Student Information</h2>
+        <div class="card" id="student-info-container">
+          <p>Use the generator below to create your AI-optimized schedule based on eligibility, CGPA, and preferences.</p>
+        </div>
+
+        <!-- Generator -->
+        <section class="schedule-selection">
+          <h2>Generate Schedule</h2>
+          <form id="generate-form">
+            <p>This will automatically assign eligible students to sections using Genetic Algorithm + Random Forest predictions.</p>
+            <button type="submit">🚀 Run Schedule Generator</button>
+          </form>
+
+          <div id="loading-message" style="display:none;margin-top:10px;">⏳ Generating schedule, please wait...</div>
+          <div id="result-message" style="margin-top:10px;"></div>
+        </section>
+
+        <!-- Assigned Table -->
+        <section class="assigned-schedule">
+          <h2>Assigned Sections Overview</h2>
+          <table class="assigned-table">
+            <thead>
+              <tr>
+                <th>Student ID</th>
+                <th>Course ID</th>
+                <th>Assigned Section</th>
+                <th>Semester</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="assigned-table-body">
+              <tr><td colspan="5" style="text-align:center;">No schedules generated yet.</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 AI-Based Class Schedule Generator | United International University</p>
+  </footer>
+
+  <script>
+    // Call backend to generate schedule, then render + save to localStorage
+    document.getElementById("generate-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const loading = document.getElementById("loading-message");
+      const resultMsg = document.getElementById("result-message");
+      const tableBody = document.getElementById("assigned-table-body");
+
+      loading.style.display = "block";
+      resultMsg.textContent = "";
+      tableBody.innerHTML = "";
+
+      try {
+        // POST -> /api/generate (Flask)
+        const res = await fetch("/api/generate", { method: "POST" });
+        const data = await res.json();
+
+        loading.style.display = "none";
+
+        if (data.status === "ok" && data.assigned) {
+          // Save last assignments so selected.html can read them
+          localStorage.setItem("last_assignments", JSON.stringify(data.assigned));
+
+          resultMsg.innerHTML =
+            "<span style='color:#52d373;font-weight:bold;'>✅ Schedule generated successfully!</span>";
+
+          const rows = [];
+          for (const [studentId, section] of Object.entries(data.assigned)) {
+            rows.push(`
+              <tr>
+                <td>${studentId}</td>
+                <td>${section?.course_id ?? "N/A"}</td>
+                <td>${section?.section_code ?? "N/A"}</td>
+                <td>${section?.semester ?? "Spring2025"}</td>
+                <td>${section ? "Assigned" : "Not Assigned"}</td>
+              </tr>
+            `);
+          }
+          tableBody.innerHTML = rows.join("") || "<tr><td colspan='5' style='text-align:center;'>No data.</td></tr>";
+        } else {
+          resultMsg.innerHTML =
+            "<span style='color:#ef5350;font-weight:bold;'>⚠️ No assignments returned.</span>";
+          tableBody.innerHTML =
+            "<tr><td colspan='5' style='text-align:center;'>No data available.</td></tr>";
+        }
+      } catch (err) {
+        console.error(err);
+        loading.style.display = "none";
+        resultMsg.innerHTML =
+          "<span style='color:#ef5350;font-weight:bold;'>❌ Error connecting to backend.</span>";
+        tableBody.innerHTML =
+          "<tr><td colspan='5' style='text-align:center;'>Error.</td></tr>";
+      }
+    });
+  </script>
+</body>
+</html>

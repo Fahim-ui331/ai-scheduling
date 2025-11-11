@@ -20,14 +20,16 @@ def generate_schedule():
     eligible_students = [s for s in students if snap[s.student_id]["eligible"]]
     priomap = {s.student_id: snap[s.student_id]["priority"] for s in eligible_students}
 
-    # 2) Load/Train RF and demand weights
-    # এখানে demo হিসেবে dummy history বানাচ্ছি—তোমার historical table/CSV বসিয়ে দাও
     import pandas as pd
+    n = len(sections)
+    if n == 0:
+                raise ValueError("No sections found in database — please seed your data first.")
+
     hist = pd.DataFrame({
-        "semester": ["Spring","Spring","Fall","Fall"]*5,
-        "course_id": [sec.course_id for sec in sections[:20]],
-        "enrollment": [min(45, sec.capacity) for sec in sections[:20]]
-    })
+        "semester": ["Spring"] * n,
+        "course_id": [sec.course_id for sec in sections],
+        "enrollment": [min(45, sec.capacity if sec.capacity else 40) for sec in sections],
+        })
     try:
         model = load_rf()
     except:
